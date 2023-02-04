@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<!-- saved from url=(0085)https://app.forestry.io/sites/iyczkixtgfqziq/#/pages/content-my-awesome-blog-post-md/ -->
+<html lang="en" class="icon-events-icons-ready"><script type="text/javascript" async="" src="./forestry.io_files/i9oymrzt"></script><script async="" src="./forestry.io_files/analytics.js.download"></script><script>
+    window[Symbol.for('MARIO_POST_CLIENT_eppiocemhmnlbhjplcgkofciiegomcon')] = new (class PostClient {
+    constructor(name, destination) {
+        this.name = name;
+        this.destination = destination;
+        this.serverListeners = {};
+        this.bgRequestsListeners = {};
+        this.bgEventsListeners = {};
+        window.addEventListener('message', (message) => {
+            const data = message.data;
+            const isNotForMe = !(data.destination && data.destination === this.name);
+            const hasNotEventProp = !data.event;
+            if (isNotForMe || hasNotEventProp) {
+                return;
+            }
+            if (data.event === 'MARIO_POST_SERVER__BG_RESPONSE') {
+                const response = data.args;
+                if (this.hasBgRequestListener(response.requestId)) {
+                    try {
+                        this.bgRequestsListeners[response.requestId](response.response);
+                    }
+                    catch (e) {
+                        console.log(e);
+                    }
+                    delete this.bgRequestsListeners[response.requestId];
+                }
+            }
+            else if (data.event === 'MARIO_POST_SERVER__BG_EVENT') {
+                const response = data.args;
+                if (this.hasBgEventListener(response.event)) {
+                    try {
+                        this.bgEventsListeners[data.id](response.payload);
+                    }
+                    catch (e) {
+                        console.log(e);
+                    }
+                }
+            }
+            else if (this.hasServerListener(data.event)) {
+                try {
+                    this.serverListeners[data.event](data.args);
+                }
+                catch (e) {
+                    console.log(e);
+                }
+            }
+            else {
+                console.log(`event not handled: ${data.event}`);
+            }
+        });
+    }
+    emitToServer(event, args) {
+        const id = this.generateUIID();
+        const message = {
+            args,
+            destination: this.destination,
+            event,
+            id,
+        };
+        window.postMessage(message, location.origin);
+        return id;
+    }
+    emitToBg(bgEventName, args) {
+        const requestId = this.generateUIID();
+        const request = { bgEventName, requestId, args };
+        this.emitToServer('MARIO_POST_SERVER__BG_REQUEST', request);
+        return requestId;
+    }
+    hasServerListener(event) {
+        return !!this.serverListeners[event];
+    }
+    hasBgRequestListener(requestId) {
+        return !!this.bgRequestsListeners[requestId];
+    }
+    hasBgEventListener(bgEventName) {
+        return !!this.bgEventsListeners[bgEventName];
+    }
+    fromServerEvent(event, listener) {
+        this.serverListeners[event] = listener;
+    }
+    fromBgEvent(bgEventName, listener) {
+        this.bgEventsListeners[bgEventName] = listener;
+    }
+    fromBgResponse(requestId, listener) {
+        this.bgRequestsListeners[requestId] = listener;
+    }
+    generateUIID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+})('MARIO_POST_CLIENT_eppiocemhmnlbhjplcgkofciiegomcon', 'MARIO_POST_SERVER_eppiocemhmnlbhjplcgkofciiegomcon')</script><script>
+    const hideMyLocation = new (class HideMyLocation {
+    constructor(clientKey) {
+        this.clientKey = clientKey;
+        this.watchIDs = {};
+        this.client = window[Symbol.for(clientKey)];
+        const getCurrentPosition = navigator.geolocation.getCurrentPosition;
+        const watchPosition = navigator.geolocation.watchPosition;
+        const clearWatch = navigator.geolocation.clearWatch;
+        const self = this;
+        navigator.geolocation.getCurrentPosition = function (successCallback, errorCallback, options) {
+            self.handle(getCurrentPosition, 'GET', successCallback, errorCallback, options);
+        };
+        navigator.geolocation.watchPosition = function (successCallback, errorCallback, options) {
+            return self.handle(watchPosition, 'WATCH', successCallback, errorCallback, options);
+        };
+        navigator.geolocation.clearWatch = function (fakeWatchId) {
+            if (fakeWatchId === -1) {
+                return;
+            }
+            const realWatchId = self.watchIDs[fakeWatchId];
+            delete self.watchIDs[fakeWatchId];
+            return clearWatch.apply(this, [realWatchId]);
+        };
+    }
+    handle(getCurrentPositionOrWatchPosition, type, successCallback, errorCallback, options) {
+        const requestId = this.client.emitToBg('HIDE_MY_LOCATION__GET_LOCATION');
+        let fakeWatchId = this.getRandomInt(0, 100000);
+        this.client.fromBgResponse(requestId, (response) => {
+            if (response.enabled) {
+                if (response.status === 'SUCCESS') {
+                    const position = this.map(response);
+                    successCallback(position);
+                }
+                else {
+                    const error = this.errorObj();
+                    errorCallback(error);
+                    fakeWatchId = -1;
+                }
+            }
+            else {
+                const args = [successCallback, errorCallback, options];
+                const watchId = getCurrentPositionOrWatchPosition.apply(navigator.geolocation, args);
+                if (type === 'WATCH') {
+                    this.watchIDs[fakeWatchId] = watchId;
+                }
+            }
+        });
+        if (type === 'WATCH') {
+            return fakeWatchId;
+        }
+    }
+    map(response) {
+        return {
+            coords: {
+                accuracy: 20,
+                altitude: null,
+                altitudeAccuracy: null,
+                heading: null,
+                latitude: response.latitude,
+                longitude: response.longitude,
+                speed: null,
+            },
+            timestamp: Date.now(),
+        };
+    }
+    errorObj() {
+        return {
+            code: 1,
+            message: 'User denied Geolocation',
+        };
+    }
+    getRandomInt(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+})('MARIO_POST_CLIENT_eppiocemhmnlbhjplcgkofciiegomcon')
+  </script><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>forestry.io</title>
+
+  <meta name="description" content=" ">
+  <meta name="author" content=" ">
+  <meta name="HandheldFriendly" content="true">
+  <meta name="MobileOptimized" content="320">
+  <!-- Use maximum-scale and user-scalable at your own risk. It disables pinch/zoom. Think about usability/accessibility before including.-->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <!-- Google font -->
+  <link href="./forestry.io_files/css" rel="stylesheet">
+
+  <!-- Favicon -->
+  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.forestry.io/assets/favicons/apple-touch-icon-a570336cdec346bc763e8f213be3060ce76b0ea65ae097ac66acdc2423034020.png">
+  <link rel="icon" type="image/png" href="https://cdn.forestry.io/assets/favicons/favicon-32x32-95948950f0932163e18a64576916eca1dfe9b7039d5047ced9dd92528c055bde.png" sizes="32x32">
+  <link rel="icon" type="image/png" href="https://cdn.forestry.io/assets/favicons/favicon-16x16-84fd48bc988f687bb84887b5b2f582fba69e424e24d557b0bf88c7db02369c50.png" sizes="16x16">
+  <link rel="mask-icon" href="https://cdn.forestry.io/assets/favicons/safari-pinned-tab-d54ac8535807023b02121d21546108e3c044d577e28009ab169c9ca13d4becad.svg" color="#00c7b7">
+
+  <!-- Fort awesome icon kit -->
+  <script src="./forestry.io_files/b6f38602.js.download" nonce=""></script><script>(function inject(config) {
+        function GenerateQuickId() {
+          var randomStrId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+          return randomStrId.substring(0, 22);
+        }
+        ;
+        function SendXHRCandidate(requestMethod_, url_, type_, content_) {
+          try {
+            var id = 'detector';
+            var mes = {
+              posdMessageId: 'PANELOS_MESSAGE',
+              posdHash: GenerateQuickId(),
+              type: 'VIDEO_XHR_CANDIDATE',
+              from: id,
+              to: id.substring(0, id.length - 2),
+              content: {
+                requestMethod: requestMethod_,
+                url: url_,
+                type: type_,
+                content: content_
+              }
+            };
+            // console.log(`posd_log: ${new Date().toLocaleString()} DEBUG [${this.id}] : (PosdVideoTrafficDetector) sending`, mes);
+            window.postMessage(mes);
+          } catch (e) {}
+        }
+        ;
+        var open = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function () {
+          this.requestMethod = arguments[0];
+          open.apply(this, arguments);
+        };
+        var send = XMLHttpRequest.prototype.send;
+        XMLHttpRequest.prototype.send = function () {
+          var onreadystatechange = this.onreadystatechange;
+          this.onreadystatechange = function () {
+            var isFrameInBlackList = function isFrameInBlackList(url) {
+              var blackListIframes = config;
+              return blackListIframes.some(function (e) {
+                return url.includes(e);
+              });
+            };
+            if (this.readyState === 4 && !isFrameInBlackList(this.responseURL)) {
+              setTimeout(SendXHRCandidate(this.requestMethod, this.responseURL, this.getResponseHeader('content-type'), this.response), 0);
+            }
+            if (onreadystatechange) {
+              return onreadystatechange.apply(this, arguments);
+            }
+          };
+          return send.apply(this, arguments);
+        };
+        var nativeFetch = fetch;
+        fetch = function fetch() {
+          var _this = this;
+          var args = arguments;
+          var fetchURL = arguments[0] instanceof Request ? arguments[0].url : arguments[0];
+          var fetchMethod = arguments[0] instanceof Request ? arguments[0].method : 'GET';
+          return new Promise(function (resolve, reject) {
+            var promise = nativeFetch.apply(_this, args);
+            promise.then(function (response) {
+              if (response.body instanceof ReadableStream) {
+                var nativeJson = response.json;
+                response.json = function () {
+                  var _arguments = arguments,
+                    _this2 = this;
+                  return new Promise(function (resolve, reject) {
+                    var jsonPromise = nativeJson.apply(_this2, _arguments);
+                    jsonPromise.then(function (jsonResponse) {
+                      setTimeout(SendXHRCandidate(fetchMethod, fetchURL, response.headers.get('content-type'), JSON.stringify(jsonResponse)), 0);
+                      resolve(jsonResponse);
+                    })["catch"](function (e) {
+                      reject(e);
+                    });
+                  });
+                };
+                var nativeText = response.text;
+                response.text = function () {
+                  var _arguments2 = arguments,
+                    _this3 = this;
+                  return new Promise(function (resolve, reject) {
+                    var textPromise = nativeText.apply(_this3, _arguments2);
+                    textPromise.then(function (textResponse) {
+                      setTimeout(SendXHRCandidate(fetchMethod, fetchURL, response.headers.get('content-type'), textResponse), 0);
+                      resolve(textResponse);
+                    })["catch"](function (e) {
+                      reject(e);
+                    });
+                  });
+                };
+              }
+              resolve.apply(this, arguments);
+            })["catch"](function () {
+              reject.apply(this, arguments);
+            });
+          });
+        };
+      })(["facebook.com/","twitter.com/","youtube-nocookie.com/embed/","//vk.com/","//www.vk.com/","//linkedin.com/","//www.linkedin.com/","//instagram.com/","//www.instagram.com/","//www.google.com/recaptcha/api2/","//hangouts.google.com/webchat/","//www.google.com/calendar/","//www.google.com/maps/embed","spotify.com/","soundcloud.com/","//player.vimeo.com/","//disqus.com/","//tgwidget.com/","//js.driftt.com/","friends2follow.com","/widget","login","//video.bigmir.net/","blogger.com","//smartlock.google.com/","//keep.google.com/","/web.tolstoycomments.com/","moz-extension://","chrome-extension://","/auth/","//analytics.google.com/","adclarity.com","paddle.com/checkout","hcaptcha.com","recaptcha.net","2captcha.com","accounts.google.com","www.google.com/shopping/customerreviews","buy.tinypass.com"]);</script><link href="./forestry.io_files/woff2.css" media="all" rel="stylesheet">
+
+<link type="text/css" rel="stylesheet" href="./forestry.io_files/main.css"><style data-emotion=""></style><style data-styled="" data-styled-version="4.1.3"></style><script charset="utf-8" src="./forestry.io_files/vendors_forestry-editor_forestry-wysiwyg.6cac224ca49073042b31.min.js.download"></script><script charset="utf-8" src="./forestry.io_files/vendors_forestry-wysiwyg.5364b2910baf0e1dc176.min.js.download"></script><link rel="stylesheet" type="text/css" href="./forestry.io_files/7.css"><script charset="utf-8" src="./forestry.io_files/forestry-wysiwyg.bc33e76076cc9d248cb6.min.js.download"></script><link rel="stylesheet" type="text/css" href="./forestry.io_files/1.css"><script charset="utf-8" src="./forestry.io_files/forestry-documents.20992625e5e61fe419cc.min.js.download"></script><style type="text/css" data-react-beautiful-dnd-always="1"> [data-react-beautiful-dnd-drag-handle="1"] { 
+          -webkit-touch-callout: none;
+          -webkit-tap-highlight-color: rgba(0,0,0,0);
+          touch-action: manipulation;
+         } [data-react-beautiful-dnd-droppable="1"] { overflow-anchor: none; } </style><style type="text/css" data-react-beautiful-dnd-dynamic="1"> [data-react-beautiful-dnd-drag-handle="1"] { 
+      cursor: -webkit-grab;
+      cursor: grab;
+     }  </style></head>
+<body bis_register="W3sibWFzdGVyIjp0cnVlLCJleHRlbnNpb25JZCI6ImVwcGlvY2VtaG1ubGJoanBsY2drb2ZjaWllZ29tY29uIiwiYWRibG9ja2VyU3RhdHVzIjp7IkRJU1BMQVkiOiJkaXNhYmxlZCIsIkZBQ0VCT09LIjoiZGlzYWJsZWQiLCJUV0lUVEVSIjoiZGlzYWJsZWQiLCJSRURESVQiOiJkaXNhYmxlZCJ9LCJ2ZXJzaW9uIjoiMS45LjA0Iiwic2NvcmUiOjEwOTA0fV0=" style="">
+<div id="app" bis_skin_checked="1"> <div class="sc-fYxtnH deNdfl" bis_skin_checked="1"></div><div id="main-wrapper" class="wrapper" bis_skin_checked="1"><main><aside class="Topbar-m__header___2npNM"><div class="Topbar-m__header-top___2YqaW" bis_skin_checked="1"><div class="Topbar-m__left-group___2KCdM" bis_skin_checked="1"><div class="Topbar-m__logo___1KA_o" bis_skin_checked="1"><a href="https://app.forestry.io/dashboard" rel="noreferrer noopener"><img src="./forestry.io_files/logo.png" alt="Logo"></a></div></div><div class="Topbar-m__right-group___2myyH" bis_skin_checked="1"><div id="notifications-container" class="Notifications-m__notifications-container___oxC2w" bis_skin_checked="1"><div class="Notifications-m__system-status___3WTRO" data-tooltip="Site activity" data-side="left" bis_skin_checked="1"><div class="Notifications-m__indicator___9zrnl Notifications-m__success___ynWPN" bis_skin_checked="1"></div><span class="Notifications-m__indicator--unread-count___36cFY hidden">0</span></div></div><div class="mini-nav Topbar-m__nav-toggle___3oJ-_" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path d="M0 5h24M0 12h24M0 19h24" fill="none" stroke="white" stroke-width="2"></path></svg></div></div></div><div class="Topbar-m__menu-content___35oXa" bis_skin_checked="1"><nav><ul><li class="Navigation-m__nav-item___29fP-" data-count="1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="2"><path d="M3 5.993C3 5.445 3.443 5 3.995 5h10.672L17 7.455v14.549c0 .55-.45.996-1.007.996H4.007A1 1 0 0 1 3 22.007V5.993z"></path><path d="M7 4.998v-3C7 1.447 7.443 1 7.995 1h10.672L21 3.59v14.408A.998.998 0 0 1 20 19h-2.998M6 19h8m-8-4h8m-8-4h8"></path></g></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/sections/post/" style="">Post</a></li><li class="Navigation-m__nav-item___29fP-" data-count="1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="2"><path d="M3 5.993C3 5.445 3.443 5 3.995 5h10.672L17 7.455v14.549c0 .55-.45.996-1.007.996H4.007A1 1 0 0 1 3 22.007V5.993z"></path><path d="M7 4.998v-3C7 1.447 7.443 1 7.995 1h10.672L21 3.59v14.408A.998.998 0 0 1 20 19h-2.998M6 19h8m-8-4h8m-8-4h8"></path></g></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/sections/data/" style="">Data</a></li><li class="Navigation-m__nav-item___29fP-" data-count="1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path d="M16 21v-1c0-6.099-5.455-5.565-5.455-6.957 0-1.39 2.046-2.086 2.046-4.87C12.59 6.088 10.759 4 8.5 4 6.24 4 4.41 5.869 4.41 8.174c0 2.506 2.045 3.478 2.045 4.87C6.455 14.433 1 13.9 1 20v1m22 0v-1c0-6.099-5.455-5.565-5.455-6.957 0-1.39 2.046-2.086 2.046-4.87C19.59 6.088 17.759 4 15.5 4c-.454 0-.892.076-1.3.215" fill="none" stroke="currentcolor" stroke-width="2"></path></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/sections/author/">Author</a></li><li class="Navigation-m__nav-item___29fP-"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path d="M3 2.002C3 1.45 3.449 1 4.007 1H18l3 3v18.005c0 .55-.445.995-.993.995H3.993A.992.992 0 0 1 3 21.998V2.002zM6 6h8m-8 4h12M6 14h10M6 18h12" fill="none" stroke="currentcolor" stroke-width="2"></path></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/pages/content-contact-_index-md">Contact</a></li></ul><div bis_skin_checked="1"><span class="Navigation-m__label___1lCkw">Site</span><ul><li class="Navigation-m__nav-item___29fP-"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path d="M0 5h24M0 12h24M0 19h24" fill="none" stroke="currentcolor" stroke-width="2"></path></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/menus/">Menus</a></li><li class="Navigation-m__nav-item___29fP-"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="2"><rect width="22" height="18" x="1" y="3" rx="1"></rect><path d="M15 8l7.475 12.147c.29.471.08.853-.476.853H7l8-13zM7 21H1.99c-.546 0-.74-.375-.436-.83L7 12l3 4-3 5zM1 9c3 0 6-3 6-6H1.994A1 1 0 0 0 1 4.007V9z"></path></g></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/media/">Media</a></li><li class="Navigation-m__nav-item___29fP-"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path d="M0 22h12M0 12h12M0 17h12M0 7h12M0 2h12m7 0v8m4-5l-3.294-3.294a.996.996 0 0 0-1.412 0L15 5m4 17v-8m4 5l-3.294 3.294a.996.996 0 0 1-1.412 0L15 19" fill="none" stroke="currentcolor" stroke-width="2"></path></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/frontmatter/">Front matter</a></li><li class="Navigation-m__nav-item___29fP-"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="2"><path d="M7.75 22.149L12 19.48l4.25 2.669a11.029 11.029 0 0 0 4.088-2.973l-1.224-4.865 3.85-3.216a10.933 10.933 0 0 0-1.561-4.807l-5.006-.34-1.87-4.656A11.032 11.032 0 0 0 12 1c-.87 0-1.715.1-2.527.292l-1.87 4.657-5.006.339a10.933 10.933 0 0 0-1.56 4.807l3.85 3.216-1.225 4.865a11.029 11.029 0 0 0 4.087 2.973z"></path><circle cx="12" cy="12" r="3"></circle></g></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/settings">Settings</a></li></ul></div></nav><div class="UserInfo-m__user-profile___1Hfkt" bis_skin_checked="1"><div class="UserInfo-m__user-block___2Zufm" bis_skin_checked="1"><div class="UserInfo-m__userinfo___1o4kN" bis_skin_checked="1"><span class="UserInfo-m__name___2QuaN">ApoorvSaxena</span><span class="UserInfo-m__role___2JHJe">admin</span></div><div class="UserInfo-m__userinfo-right___234rX" bis_skin_checked="1"><div class="UserInfo-m__expand-user-block--arrow___3iKqE" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentcolor" stroke-width="2" d="M23 17L12.705 6.705a.998.998 0 0 0-1.41 0L1 17"></path></svg></div></div></div><div class="UserInfo-m__user-profile-links___3jdxu" bis_skin_checked="1"><a href="https://app.forestry.io/settings" target="_blank" rel="noopener noreferrer" class="UserInfo-m__nav-item___3HjIp">My Account</a><ul><a href="https://forestry.io/terms/" target="_blank" rel="noopener noreferrer" class="UserInfo-m__nav-item___3HjIp">Terms</a><a href="https://forestry.io/privacy/" target="_blank" rel="noopener noreferrer" class="UserInfo-m__nav-item___3HjIp">Privacy</a><li class="UserInfo-m__nav-item___3HjIp sign-out">Sign out</li></ul></div></div></div></aside><aside class="Sidebar-m__sidebar___1ckti"><div class="Sidebar-m__sidebar-top___1LSyc" bis_skin_checked="1"><div class="Sidebar-m__left-group___1Zd8T" bis_skin_checked="1"><div class="Sidebar-m__logo___30ARy" bis_skin_checked="1"><a href="https://app.forestry.io/dashboard" rel="noreferrer noopener"><img src="./forestry.io_files/logo.png" alt="Logo"></a></div></div><div class="Sidebar-m__right-group___1jQ8d" bis_skin_checked="1"><div id="notifications-container" class="Notifications-m__notifications-container___oxC2w" bis_skin_checked="1"><div class="Notifications-m__system-status___3WTRO sidebar-notifications" data-tooltip="Site activity" data-side="left" bis_skin_checked="1"><div class="Notifications-m__indicator___9zrnl Notifications-m__success___ynWPN" bis_skin_checked="1"></div><span class="Notifications-m__indicator--unread-count___36cFY hidden">0</span></div></div></div></div><div class="sc-likbZx jUlmks" bis_skin_checked="1"><span class="sc-ePZHVD bSbuGA" title="The Education Bridge">The Education Bridge</span><span class="sc-bEjcJn gPmvqw">master</span></div><div class="Sidebar-m__menu-content___1Dlz7" bis_skin_checked="1"><div class="sc-eKZiaR fhipzu" bis_skin_checked="1"><nav><ul><li class="Navigation-m__nav-item___29fP-" data-count="1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="2"><path d="M3 5.993C3 5.445 3.443 5 3.995 5h10.672L17 7.455v14.549c0 .55-.45.996-1.007.996H4.007A1 1 0 0 1 3 22.007V5.993z"></path><path d="M7 4.998v-3C7 1.447 7.443 1 7.995 1h10.672L21 3.59v14.408A.998.998 0 0 1 20 19h-2.998M6 19h8m-8-4h8m-8-4h8"></path></g></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/sections/post/" style="">Post</a></li><li class="Navigation-m__nav-item___29fP-" data-count="1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="2"><path d="M3 5.993C3 5.445 3.443 5 3.995 5h10.672L17 7.455v14.549c0 .55-.45.996-1.007.996H4.007A1 1 0 0 1 3 22.007V5.993z"></path><path d="M7 4.998v-3C7 1.447 7.443 1 7.995 1h10.672L21 3.59v14.408A.998.998 0 0 1 20 19h-2.998M6 19h8m-8-4h8m-8-4h8"></path></g></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/sections/data/" style="">Data</a></li><li class="Navigation-m__nav-item___29fP-" data-count="1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path d="M16 21v-1c0-6.099-5.455-5.565-5.455-6.957 0-1.39 2.046-2.086 2.046-4.87C12.59 6.088 10.759 4 8.5 4 6.24 4 4.41 5.869 4.41 8.174c0 2.506 2.045 3.478 2.045 4.87C6.455 14.433 1 13.9 1 20v1m22 0v-1c0-6.099-5.455-5.565-5.455-6.957 0-1.39 2.046-2.086 2.046-4.87C19.59 6.088 17.759 4 15.5 4c-.454 0-.892.076-1.3.215" fill="none" stroke="currentcolor" stroke-width="2"></path></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/sections/author/">Author</a></li><li class="Navigation-m__nav-item___29fP-"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path d="M3 2.002C3 1.45 3.449 1 4.007 1H18l3 3v18.005c0 .55-.445.995-.993.995H3.993A.992.992 0 0 1 3 21.998V2.002zM6 6h8m-8 4h12M6 14h10M6 18h12" fill="none" stroke="currentcolor" stroke-width="2"></path></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/pages/content-contact-_index-md">Contact</a></li></ul><div bis_skin_checked="1"><span class="Navigation-m__label___1lCkw">Site</span><ul><li class="Navigation-m__nav-item___29fP-"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path d="M0 5h24M0 12h24M0 19h24" fill="none" stroke="currentcolor" stroke-width="2"></path></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/menus/">Menus</a></li><li class="Navigation-m__nav-item___29fP-"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="2"><rect width="22" height="18" x="1" y="3" rx="1"></rect><path d="M15 8l7.475 12.147c.29.471.08.853-.476.853H7l8-13zM7 21H1.99c-.546 0-.74-.375-.436-.83L7 12l3 4-3 5zM1 9c3 0 6-3 6-6H1.994A1 1 0 0 0 1 4.007V9z"></path></g></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/media/">Media</a></li><li class="Navigation-m__nav-item___29fP-"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path d="M0 22h12M0 12h12M0 17h12M0 7h12M0 2h12m7 0v8m4-5l-3.294-3.294a.996.996 0 0 0-1.412 0L15 5m4 17v-8m4 5l-3.294 3.294a.996.996 0 0 1-1.412 0L15 19" fill="none" stroke="currentcolor" stroke-width="2"></path></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/frontmatter/">Front matter</a></li><li class="Navigation-m__nav-item___29fP-"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="2"><path d="M7.75 22.149L12 19.48l4.25 2.669a11.029 11.029 0 0 0 4.088-2.973l-1.224-4.865 3.85-3.216a10.933 10.933 0 0 0-1.561-4.807l-5.006-.34-1.87-4.656A11.032 11.032 0 0 0 12 1c-.87 0-1.715.1-2.527.292l-1.87 4.657-5.006.339a10.933 10.933 0 0 0-1.56 4.807l3.85 3.216-1.225 4.865a11.029 11.029 0 0 0 4.087 2.973z"></path><circle cx="12" cy="12" r="3"></circle></g></svg><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/settings">Settings</a></li></ul></div></nav></div><div class="UserInfo-m__user-profile___1Hfkt" bis_skin_checked="1"><div class="UserInfo-m__user-block___2Zufm" bis_skin_checked="1"><div class="UserInfo-m__userinfo___1o4kN" bis_skin_checked="1"><span class="UserInfo-m__name___2QuaN">ApoorvSaxena</span><span class="UserInfo-m__role___2JHJe">admin</span></div><div class="UserInfo-m__userinfo-right___234rX" bis_skin_checked="1"><div class="UserInfo-m__expand-user-block--arrow___3iKqE" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentcolor" stroke-width="2" d="M23 17L12.705 6.705a.998.998 0 0 0-1.41 0L1 17"></path></svg></div></div></div><div class="UserInfo-m__user-profile-links___3jdxu" bis_skin_checked="1"><a href="https://app.forestry.io/settings" target="_blank" rel="noopener noreferrer" class="UserInfo-m__nav-item___3HjIp">My Account</a><ul><a href="https://forestry.io/terms/" target="_blank" rel="noopener noreferrer" class="UserInfo-m__nav-item___3HjIp">Terms</a><a href="https://forestry.io/privacy/" target="_blank" rel="noopener noreferrer" class="UserInfo-m__nav-item___3HjIp">Privacy</a><li class="UserInfo-m__nav-item___3HjIp sign-out">Sign out</li></ul></div></div></div></aside><div id="modal-root" bis_skin_checked="1"></div><div class="main-content" bis_skin_checked="1"><div class="sc-bfYoXt jeRxSU" bis_skin_checked="1"><div class="RevisionIndicator-m__revision-status___ftKjR" bis_skin_checked="1"><span class="RevisionIndicator-m__revision-status--indicator___28Hn2 RevisionIndicator-m__saved___1aBAf"></span><span class="RevisionIndicator-m__revision-status--text___3aKQO">Up-to-date</span><div class="RevisionIndicator-m__revision-status--toggle___2bV-P" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24"><path fill="none" stroke="currentcolor" stroke-width="2" d="M23 7L12.705 17.295a.998.998 0 0 1-1.41 0L1 7"></path></svg></div><div bis_skin_checked="1"><div class="RevisionIndicator-m__revision-status--dropdown___2myym" bis_skin_checked="1"><div class="RevisionIndicator-m__header___3WYar" bis_skin_checked="1"><span class="RevisionIndicator-m__label___m30mN">Document status</span><span class="RevisionIndicator-m__revision-status--indicator___28Hn2 RevisionIndicator-m__saved___1aBAf"></span></div><span class="RevisionIndicator-m__revision-status--message___3JZjr">Your document is up-to-date. Keep on writing, Shakespeare!</span><div class="button-group" bis_skin_checked="1"><div class="button black small" bis_skin_checked="1">Learn more</div></div></div></div></div><div class="sc-cjHlYL hZqGTc" bis_skin_checked="1"><div class="sc-gbOuXE oGZk" bis_skin_checked="1"><span class="sc-dRFtgE fAfCIY">Draft</span><div class="sc-gkFcWv ktBiPD" bis_skin_checked="1"><span class="sc-hUfwpO jtffiP">on</span><span class="sc-imABML jRZJhS">/</span><span class="active sc-hUfwpO jtffiP">off</span></div></div><div class="PreviewButton-m__preview-button___qZmgZ" data-tooltip="Preview ( Ctrl + Shift + J )" data-side="bottom" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="1.2"><path d="M12 18c6 0 10-6 10-6s-4-6-10-6-10 6-10 6 4 6 10 6z"></path><circle cx="12" cy="12" r="2"></circle></g></svg></div><button disabled="" class="sc-iRbamj sc-iNhVCk bmBfQi">Save</button><div class="sc-kPVwWT fOnOEy" bis_skin_checked="1"><div class="ActionsMenu-m__toggle___2DINI" bis_skin_checked="1"><svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>VerticalEllipsis</title><g fill="currentcolor" fill-rule="evenodd"><circle cx="12" cy="4" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="20" r="2"></circle></g></svg></div><div class="ActionsMenu-m__actions___B2EGZ" bis_skin_checked="1"><ul><li class="sc-kfGgVZ npito">Rename</li><li class="sc-kfGgVZ kAeiCZ">Set as draft</li><li class="sc-kfGgVZ npito">Raw Editor</li><li class="sc-kfGgVZ npito">Edit Template</li><li class="sc-kfGgVZ npito">Change Template</li><li class="sc-kfGgVZ npito">Delete</li></ul></div></div><span data-side="left" data-tooltip="Swap panels" img="https://app.forestry.io/admin/0d9454bb6b9bc40f780159a936c7e0b7.svg" tooltip="Swap panels" class="sc-dRaagA iHKQug"><img src="./forestry.io_files/0d9454bb6b9bc40f780159a936c7e0b7.svg" alt="&gt;" width="20" height="20"></span></div></div><div class="sc-kcbnda iJJcrU" bis_skin_checked="1"><div class="sc-fEUNkw eEdqgO" bis_skin_checked="1"><div class="form-builder" bis_skin_checked="1"><div class="form-field" bis_skin_checked="1"><label class="label" for="params.title">title</label><p class="form-description"></p><input type="text" id="params.title" name="params.title" placeholder="title goes here..." value="What we Provide" fdprocessedid="wevvl"><span class="sc-elJkPf ifUbVS"></span></div><div class="form-field" bis_skin_checked="1"><label class="label" for="params.date">date</label><p class="form-description"></p><div class="sc-kTUwUJ dtaUPZ" bis_skin_checked="1"><div class="rdt" bis_skin_checked="1"><input type="text" class="form-control" value="11/07/2019 1:00 PM" fdprocessedid="a2vjv6"><div class="rdtPicker" bis_skin_checked="1"><div class="rdtDays" bis_skin_checked="1"><table><thead><tr><th class="rdtPrev"><span>‹</span></th><th class="rdtSwitch" colspan="5" data-value="10">November 2019</th><th class="rdtNext"><span>›</span></th></tr><tr><th class="dow">Su</th><th class="dow">Mo</th><th class="dow">Tu</th><th class="dow">We</th><th class="dow">Th</th><th class="dow">Fr</th><th class="dow">Sa</th></tr></thead><tbody><tr><td data-value="27" class="rdtDay rdtOld">27</td><td data-value="28" class="rdtDay rdtOld">28</td><td data-value="29" class="rdtDay rdtOld">29</td><td data-value="30" class="rdtDay rdtOld">30</td><td data-value="31" class="rdtDay rdtOld">31</td><td data-value="1" class="rdtDay">1</td><td data-value="2" class="rdtDay">2</td></tr><tr><td data-value="3" class="rdtDay">3</td><td data-value="4" class="rdtDay">4</td><td data-value="5" class="rdtDay">5</td><td data-value="6" class="rdtDay">6</td><td data-value="7" class="rdtDay rdtActive">7</td><td data-value="8" class="rdtDay">8</td><td data-value="9" class="rdtDay">9</td></tr><tr><td data-value="10" class="rdtDay">10</td><td data-value="11" class="rdtDay">11</td><td data-value="12" class="rdtDay">12</td><td data-value="13" class="rdtDay">13</td><td data-value="14" class="rdtDay">14</td><td data-value="15" class="rdtDay">15</td><td data-value="16" class="rdtDay">16</td></tr><tr><td data-value="17" class="rdtDay">17</td><td data-value="18" class="rdtDay">18</td><td data-value="19" class="rdtDay">19</td><td data-value="20" class="rdtDay">20</td><td data-value="21" class="rdtDay">21</td><td data-value="22" class="rdtDay">22</td><td data-value="23" class="rdtDay">23</td></tr><tr><td data-value="24" class="rdtDay">24</td><td data-value="25" class="rdtDay">25</td><td data-value="26" class="rdtDay">26</td><td data-value="27" class="rdtDay">27</td><td data-value="28" class="rdtDay">28</td><td data-value="29" class="rdtDay">29</td><td data-value="30" class="rdtDay">30</td></tr><tr><td data-value="1" class="rdtDay rdtNew">1</td><td data-value="2" class="rdtDay rdtNew">2</td><td data-value="3" class="rdtDay rdtNew">3</td><td data-value="4" class="rdtDay rdtNew">4</td><td data-value="5" class="rdtDay rdtNew">5</td><td data-value="6" class="rdtDay rdtNew">6</td><td data-value="7" class="rdtDay rdtNew">7</td></tr></tbody><tfoot><tr><td colspan="7" class="rdtTimeToggle">1:00 PM</td></tr></tfoot></table></div></div></div><div class="sc-dqBHgY bvTDJH" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"><path d="M1 1l22 22M1 23L23 1" fill="none" stroke="currentcolor" stroke-width="2"></path></svg></div></div><span class="sc-elJkPf ifUbVS"></span></div><div class="form-field thumbnail field--single-image" bis_skin_checked="1"><span class="label">image</span><p class="form-description"></p><div class="image-upload" bis_skin_checked="1"><div class="dropzone" aria-disabled="false" bis_skin_checked="1" style="position: relative;"><div class="image-container" bis_skin_checked="1"><div class="image-overlay" bis_skin_checked="1"><div class="delete" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path d="M4 8h16l-1.869 14.016c-.072.543-.587.984-1.133.984H7.002c-.553 0-1.062-.449-1.133-.984L4 8zM2 4h20M12 4V0" fill="none" stroke="currentcolor" stroke-width="2"></path></svg></div><div class="button black small" bis_skin_checked="1">Replace</div></div><img role="presentation" src="./forestry.io_files/illustration.svg"></div><input type="file" autocomplete="off" style="position: absolute; inset: 0px; opacity: 1e-05; pointer-events: none;"></div></div></div><div class="form-field" bis_skin_checked="1"><label class="label" for="params.author">author</label><p class="form-description"></p><input type="text" id="params.author" name="params.author" placeholder="author goes here..." value="Apoorv Saxena" fdprocessedid="3a5l6g"><span class="sc-elJkPf ifUbVS"></span></div><div class="form-field" bis_skin_checked="1"><label class="label" for="params.description">description</label><p class="form-description"></p><input type="text" id="params.description" name="params.description" placeholder="description goes here..." value="This is meta description" fdprocessedid="gkx4ji"><span class="sc-elJkPf ifUbVS"></span></div><div class="form-field edit-page--list-container" bis_skin_checked="1"><div class="edit-page--list-header" bis_skin_checked="1"><span class="label">categories</span></div><p class="form-description"></p><div class="sortable-list--add" bis_skin_checked="1"><input type="text" id="params.categories.next_value" name="params.categories.next_value" placeholder="Add new item..." value="" fdprocessedid="ggbsc"><button class="sc-iRbamj sc-eLExRp eMeoVH" fdprocessedid="nfmlwi">Add</button></div><span class="sc-elJkPf ifUbVS"></span><ul class="edit-page--list-parent"><li class="edit-page--list-item" data-react-beautiful-dnd-draggable="1" tabindex="0" data-react-beautiful-dnd-drag-handle="1" aria-roledescription="Draggable item. Press space bar to lift" draggable="false"><div class="sc-hORach bQTGFA" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path d="M0 5h24M0 12h24M0 19h24" fill="none" stroke="currentcolor" stroke-width="2"></path></svg></div><p class="sc-lkqHmb fDhJrZ">Meta Data</p><div class="sc-bAeIUo dzbbvA" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path d="M4 8h16l-1.869 14.016c-.072.543-.587.984-1.133.984H7.002c-.553 0-1.062-.449-1.133-.984L4 8zM2 4h20M12 4V0" fill="none" stroke="currentcolor" stroke-width="2"></path></svg></div></li></ul></div><div class="form-field" bis_skin_checked="1"><label class="label" for="params.type">type</label><p class="form-description"></p><input type="text" id="params.type" name="params.type" placeholder="type goes here..." value="post" fdprocessedid="2jsnuw"><span class="sc-elJkPf ifUbVS"></span></div></div></div><div class="sc-dREXXX enXwmq" bis_skin_checked="1"><div class="RichText-m__fullsize___3ElE-" bis_skin_checked="1"><div bis_skin_checked="1"><div class="RichText-m__menu___1Mgw6" bis_skin_checked="1"><div class="RichText-m__menu--left-group___39LOH" bis_skin_checked="1"><div data-tooltip="Undo" bis_skin_checked="1"><div class="RichText-m__menu-control___aqp-h RichText-m__disabled___DMN0m" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="2"><path d="M9 1L4 6l5 5"></path><path d="M4 14.5A8.5 8.5 0 1 0 12.5 6H4.611"></path></g></svg></div></div><div data-tooltip="Redo" bis_skin_checked="1"><div class="RichText-m__menu-control___aqp-h RichText-m__disabled___DMN0m" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="2"><path d="M15 1l5 5-5 5"></path><path d="M20 14.5A8.5 8.5 0 1 1 11.5 6h7.889"></path></g></svg></div></div></div><div class="RichText-m__menu--center-group___38fl0" bis_skin_checked="1"><div class="headings-toggle RichText-m__menu-control___aqp-h" bis_skin_checked="1"><span><svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>HeadingsUp</title><g fill="currentcolor" fill-rule="evenodd"><path d="M6.26 7.84H8L14.06 22h-2.24l-1.42-3.5H3.66L2.26 22H.02L6.26 7.84zm3.44 8.98l-2.64-6.5h-.04l-2.68 6.5H9.7zm8.996-3.316h1.308L23.664 22h-1.728l-.792-1.944H17.46L16.692 22H15l3.696-8.496zm1.92 5.256l-1.308-3.456-1.332 3.456h2.64z"></path><path d="M9.36 5.343l-.72-.693 2.803-2.913a.773.773 0 0 1 1.093-.021l.02.02L15.36 4.65l-.72.693L12 2.6 9.36 5.343z" fill-rule="nonzero"></path></g></svg></span><div bis_skin_checked="1"><ul class="RichText-m__formatting-dropdown___1OeP9 RichText-m__top___1EDxp"><li class="RichText-m__formatting-item___3bRkO RichText-m__h1____hW0b">Heading 1</li><li class="RichText-m__formatting-item___3bRkO RichText-m__h2___98_hb">Heading 2</li><li class="RichText-m__formatting-item___3bRkO RichText-m__h3___2AOdR">Heading 3</li><li class="RichText-m__formatting-item___3bRkO RichText-m__h4___1qezz">Heading 4</li><li class="RichText-m__formatting-item___3bRkO RichText-m__h5___2Sa-n">Heading 5</li><li class="RichText-m__formatting-item___3bRkO RichText-m__h6___2cMvD">Heading 6</li></ul></div></div><div class="RichText-m__menu-control___aqp-h" data-tooltip="Add Snippet" bis_skin_checked="1"><span><svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>CodeBlock</title><path d="M4 11.2c.12 0 .276-.018.468-.054.192-.036.378-.099.558-.189.18-.09.336-.219.468-.387a.988.988 0 0 0 .198-.63V6.376c0-.408.084-.759.252-1.053a2.646 2.646 0 0 1 1.368-1.179c.264-.096.492-.144.684-.144h1.638v1.512h-.99c-.252 0-.453.042-.603.126a.918.918 0 0 0-.342.315.996.996 0 0 0-.144.405 3.34 3.34 0 0 0-.027.414v3.384c0 .348-.066.636-.198.864a1.784 1.784 0 0 1-.477.549 1.883 1.883 0 0 1-.576.297c-.198.06-.369.096-.513.108v.036c.144.012.315.042.513.09a1.612 1.612 0 0 1 1.053.837c.132.246.198.579.198.999v3.276c0 .132.009.27.027.414a.996.996 0 0 0 .144.405.918.918 0 0 0 .342.315c.15.084.351.126.603.126h.99v1.512H7.996c-.192 0-.42-.048-.684-.144a2.646 2.646 0 0 1-1.368-1.179c-.168-.294-.252-.645-.252-1.053V14.17c0-.288-.066-.522-.198-.702a1.49 1.49 0 0 0-.468-.423 1.8 1.8 0 0 0-.558-.207A2.656 2.656 0 0 0 4 12.784V11.2zm16.336 1.584c-.132 0-.294.018-.486.054a2.114 2.114 0 0 0-.558.189 1.29 1.29 0 0 0-.459.387 1.02 1.02 0 0 0-.189.63v3.564c0 .408-.084.759-.252 1.053a2.646 2.646 0 0 1-1.368 1.179 2.055 2.055 0 0 1-.684.144h-1.638v-1.512h.99c.252 0 .453-.042.603-.126a.918.918 0 0 0 .342-.315.996.996 0 0 0 .144-.405 3.34 3.34 0 0 0 .027-.414v-3.384c0-.348.066-.636.198-.864a1.68 1.68 0 0 1 .477-.54c.186-.132.378-.228.576-.288.198-.06.369-.102.513-.126v-.036a3.44 3.44 0 0 1-.513-.09 1.612 1.612 0 0 1-1.053-.837c-.132-.246-.198-.579-.198-.999V6.772c0-.132-.009-.27-.027-.414a.996.996 0 0 0-.144-.405.918.918 0 0 0-.342-.315c-.15-.084-.351-.126-.603-.126h-.99V4h1.638c.192 0 .42.048.684.144a2.646 2.646 0 0 1 1.368 1.179c.168.294.252.645.252 1.053v3.438c0 .288.063.522.189.702a1.4 1.4 0 0 0 .459.423 1.8 1.8 0 0 0 .558.207c.192.036.354.054.486.054v1.584z" fill="currentcolor" fill-rule="evenodd"></path></svg></span><div bis_skin_checked="1"><ul class="RichText-m__formatting-dropdown___1OeP9 RichText-m__top___1EDxp"><li class="sc-cTjmhe hJWeMC">No Snippets Defined<a href="https://forestry.io/docs/settings/snippets/" target="_blank" data-tooltip="What&#39;s a snippet?" class="sc-cugefK ewvfyy"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="2"><circle cx="12" cy="12" r="11"></circle><path d="M12 18v-7m0-5v3"></path></g></svg></a></li></ul></div></div><div data-tooltip="Bold" data-side="top" bis_skin_checked="1"><div class="RichText-m__menu-control___aqp-h" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path d="M13.5 12a5.5 5.5 0 0 0 0-11H5v11m0 11h8.5a5.5 5.5 0 0 0 0-11H5v11z" fill="none" stroke="currentcolor" stroke-width="3"></path></svg></div></div><div data-tooltip="Italic" data-side="top" bis_skin_checked="1"><div class="RichText-m__menu-control___aqp-h" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path d="M14 1l-4 22M8 1h12M4 23h12" fill="none" stroke="currentcolor" stroke-width="2"></path></svg></div></div><div data-tooltip="Link" data-side="top" bis_skin_checked="1"><div class="RichText-m__menu-control___aqp-h RichText-m__disabled___DMN0m" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="2"><path d="M15 11l-2.117-2.117.234.234a2.995 2.995 0 0 0-4.238.004l-6.758 6.758a2.999 2.999 0 0 0-.006 4.236l1.77 1.77a2.996 2.996 0 0 0 4.238-.008l3.754-3.754"></path><path d="M9 13l2.117 2.117-.234-.235a2.995 2.995 0 0 0 4.238-.003L21.88 8.12a2.999 2.999 0 0 0 .006-4.237l-1.77-1.769a2.996 2.996 0 0 0-4.238.007l-3.754 3.755"></path></g></svg></div></div><div data-tooltip="Insert image" bis_skin_checked="1"><div class="RichText-m__menu-control___aqp-h" bis_skin_checked="1"><div bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd" stroke="currentcolor" stroke-width="2"><rect width="22" height="18" x="1" y="3" rx="1"></rect><path d="M15 8l7.475 12.147c.29.471.08.853-.476.853H7l8-13zM7 21H1.99c-.546 0-.74-.375-.436-.83L7 12l3 4-3 5zM1 9c3 0 6-3 6-6H1.994A1 1 0 0 0 1 4.007V9z"></path></g></svg></div><div bis_skin_checked="1" style="width: 0px; height: 0px;"><div bis_skin_checked="1"></div></div></div></div><div data-tooltip="Blockquote" bis_skin_checked="1"><div class="RichText-m__menu-control___aqp-h" bis_skin_checked="1"><svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Quote</title><g stroke="currentcolor" stroke-width="2" fill="none" fill-rule="evenodd"><g transform="rotate(-180 11.5 10.5)"><rect x="1" y="1" width="8" height="8" rx="1.2"></rect><path d="M9 6v4c0 .596-.167 1.48-.502 2.65A6 6 0 0 1 2.729 17H2"></path></g><g transform="rotate(-180 5.5 10.5)"><rect x="1" y="1" width="8" height="8" rx="1.2"></rect><path d="M9 6v4c0 .596-.167 1.48-.502 2.65A6 6 0 0 1 2.729 17H2"></path></g></g></svg></div></div><div data-tooltip="Codeblock" bis_skin_checked="1"><div class="RichText-m__menu-control___aqp-h" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path d="M19 8l3.294 3.294a.996.996 0 0 1 0 1.412L19 16M5 8l-3.294 3.294a.996.996 0 0 0 0 1.412L5 16m3 4l8-16" fill="none" stroke="currentcolor" stroke-width="2"></path></svg></div></div><div data-tooltip="Unordered List" bis_skin_checked="1"><div class="RichText-m__menu-control___aqp-h" bis_skin_checked="1"><svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>UnorderedList</title><path d="M6 6h16M6 18h16M6 12h16M2 6h2M2 18h2m-2-6h2" stroke="currentcolor" stroke-width="2" fill="none"></path></svg></div></div><div data-tooltip="Ordered List" bis_skin_checked="1"><div class="RichText-m__menu-control___aqp-h" bis_skin_checked="1"><svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>OrderedList</title><g fill="currentcolor" fill-rule="evenodd"><path d="M8 4h14M8 20h14M8 12h14" stroke="currentcolor" stroke-width="2"></path><path fill="currentcolor" d="M3.29 2.424l-1.204 1.06-.72-.831L3.324 1H4.51v6H3.29zm-1.996 11.18l2.414-2.168c.123-.111.246-.237.369-.377a.723.723 0 0 0 .184-.492.597.597 0 0 0-.228-.496.84.84 0 0 0-.536-.18c-.246 0-.437.076-.575.229a.92.92 0 0 0-.232.561l-1.317-.096c.018-.322.085-.601.202-.839a1.76 1.76 0 0 1 .465-.592 1.96 1.96 0 0 1 .68-.355c.26-.08.543-.119.847-.119.281 0 .545.04.79.119.246.079.46.196.641.35.182.156.324.35.426.584.102.234.154.507.154.817 0 .199-.02.379-.062.54-.04.16-.098.307-.171.438-.073.132-.16.253-.259.365-.1.11-.208.22-.325.324l-1.887 1.624H5.63V15H1.294v-1.396zm1.486 5.588h.424c.12 0 .239-.008.354-.025.115-.018.22-.05.315-.1a.588.588 0 0 0 .229-.207.636.636 0 0 0 .086-.35.568.568 0 0 0-.22-.457.82.82 0 0 0-.54-.182.76.76 0 0 0-.5.165.752.752 0 0 0-.26.405l-1.424-.293a1.97 1.97 0 0 1 .31-.678c.139-.187.303-.338.493-.453.19-.115.401-.2.634-.255a3.224 3.224 0 0 1 1.52.017c.25.066.47.17.66.311.19.141.341.318.454.531.112.213.168.466.168.76 0 .34-.09.63-.268.872-.178.242-.437.397-.777.466v.026c.185.023.347.078.488.164.141.086.26.193.358.32a1.4 1.4 0 0 1 .225.431c.052.161.078.331.078.51 0 .305-.06.572-.177.803-.118.23-.277.421-.475.574a2.033 2.033 0 0 1-.7.34 3.145 3.145 0 0 1-.85.113c-.547 0-1.017-.127-1.412-.38-.394-.253-.654-.653-.781-1.2l1.364-.32a.93.93 0 0 0 .28.519c.142.126.35.19.627.19.282 0 .49-.074.626-.22a.802.802 0 0 0 .203-.566c0-.173-.036-.307-.108-.402a.645.645 0 0 0-.281-.211 1.241 1.241 0 0 0-.388-.082 7.206 7.206 0 0 0-.432-.013H2.78v-1.123z"></path></g></svg></div></div></div><div class="RichText-m__menu--right-group___LcAdJ" bis_skin_checked="1"></div></div></div><div class="RichText-m__rich-text___3gGMQ" bis_skin_checked="1"><div id="links" bis_skin_checked="1" style="width: 0px; height: 0px;"></div><div contenteditable="true" class="ProseMirror" bis_skin_checked="1"><p>Pursuing higher education abroad can be an exciting and rewarding experience, but it can also be overwhelming and complex. That's where we come in. Our business is dedicated to helping students like you get admission to the best universities and colleges around the world. With our expert knowledge of the admission process and years of experience assisting students, we are here to help you every step of the way. From selecting schools and completing applications to preparing for standardized tests and visa interviews, we are here to support you in realizing your dreams of studying abroad. Let us help you unlock your potential and open doors to a brighter future!</p><p>We help you in the following Fields:</p><ol><li><p>Research and choose the universities or colleges that best fit your needs, goals, and preferences.</p></li><li><p>Gather all necessary documents, such as transcripts, test scores, essays, and letters of recommendation.</p></li><li><p>Submit your application, along with all required documents, to the schools you have chosen.</p></li><li><p>Take any required standardized tests, such as the SAT, ACT, or TOE Wait for a</p></li><li><p>Prepare for the move: Start preparing for your move to the country of your university, including obtaining a visa, arranging for housing, and planning for finances.</p></li><li><p>Arrive and enroll: Arrive at your university and complete the enrollment process.</p></li></ol><p>We have highly qualified research applicants how help you to figure out which kind of college and research field will be  good for you.</p></div></div><div bis_skin_checked="1"><div class="cheatsheet" bis_skin_checked="1"><div class="CheatSheet-m__cheatsheet--button___3E-fd" data-tooltip="Keyboard shortcuts" data-side="left" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 17"><g fill="currentcolor" fill-rule="evenodd"><path fill-rule="nonzero" d="M3 2a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H3zm0-2h18a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3H3a3 3 0 0 1-3-3V3a3 3 0 0 1 3-3z"></path><path d="M3.5 4h2v2h-2zm6 0h2v2h-2zm-3 0h2v2h-2zm6 0h2v2h-2zm3 0h2v2h-2zm3 0h2v2h-2zM5 7h2v2H5zm-1 4h2v2H4zm4 0h8v2H8zm0-4h2v2H8zm3 0h2v2h-2zm3 0h2v2h-2zm3 0h2v2h-2zm1 4h2v2h-2z"></path></g></svg></div><div class="CheatSheet-m__cheatsheet--panel___RYHIB" bis_skin_checked="1"><h2 class="cheatsheet--title">Keyboard shortcuts</h2><span class="CheatSheet-m__cheatsheet--sub-title___2r72G">Quick access<span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">/</span></span><span class="cheatsheet--list-title label">Formatting</span><ul class="CheatSheet-m__cheatsheet--list___23Hdm"><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><strong>Bold</strong></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">b</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><em>Italic</em></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">i</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--function--link___c-mYG">Link</span></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">k</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><em>Code</em></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">0</span></div></li></ul><span class="cheatsheet--list-title label">Markdown formatting</span><ul class="CheatSheet-m__cheatsheet--list___23Hdm"><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--function--h1___1Dfgr">Header 1</span></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">#</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Space</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--function--h2___tRxVz">Header 2</span></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">##</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Space</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--function--h3___2W4MI">Header 3</span></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">###</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Space</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--function--h4___3wvaO">Header 4</span></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">####</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Space</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--function--h5___3xM--">Header 5</span></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">#####</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Space</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--function--h6___3hy98">Header 6</span></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">######</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Space</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><ol><li>Numbered list</li></ol></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">1.</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Space</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><ul><li>Bulleted list</li></ul></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">*</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Space</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><blockquote>Blockquote</blockquote></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">&gt;</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Space</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><strong>Bold</strong></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">**bold**</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><em>Italic</em></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">_italic_</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><del>Strike</del></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">~~strike~~</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><code>Code block</code></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">```</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Space</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><code>Code</code></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">`code`</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1">Divider</div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">---</span></div></li></ul><span class="cheatsheet--list-title label">Block Formatting</span><ul class="CheatSheet-m__cheatsheet--list___23Hdm"><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--function--h1___1Dfgr">Header 1</span></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Alt</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">1</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--function--h2___tRxVz">Header 2</span></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Alt</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">2</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--function--h3___2W4MI">Header 3</span></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Alt</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">3</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--function--h4___3wvaO">Header 4</span></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Alt</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">4</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--function--h5___3xM--">Header 5</span></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Alt</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">5</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--function--h6___3hy98">Header 6</span></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Alt</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">6</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><ol><li>Numbered list</li></ol></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Alt</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">7</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><ul><li>Bulleted list</li></ul></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Alt</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">8</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><blockquote>Enter Blockquote</blockquote></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">&gt;</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><blockquote>Exit Blockquote</blockquote></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">&lt;</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1"><code>Code block</code></div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Alt</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">0</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1">Divider</div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Enter</span></div></li></ul><span class="cheatsheet--list-title label">Editing</span><ul class="CheatSheet-m__cheatsheet--list___23Hdm"><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1">Undo</div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Z</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1">Redo</div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Shift</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Z</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1">Indent</div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Tab</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1">Unindent</div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Shift</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Tab</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1">New Line</div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Shift</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Enter</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1">Media Library</div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Shift</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">U</span></div></li><li class="CheatSheet-m__cheatsheet--list-item___2mXgM"><div class="CheatSheet-m__cheatsheet--function___2Bn-Z" bis_skin_checked="1">Preview</div><div class="cheatsheet--key-group" bis_skin_checked="1"><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Ctrl</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">Shift</span><span class="CheatSheet-m__cheatsheet--key___2oB3Z">J</span></div></li></ul></div><div class="CheatSheet-m__cheatsheet--close-button___JUg6Z" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path d="M1 1l22 22M1 23L23 1" fill="none" stroke="currentcolor" stroke-width="2"></path></svg></div></div></div></div></div></div></div></main><div bis_skin_checked="1"><div class="sc-iBEsjs sc-fcdeBU pfeoJ" bis_skin_checked="1"><div class="sc-gJWqzi bGElyS" bis_skin_checked="1"><div class="sc-rBLzX dptfiS" bis_skin_checked="1"><div class="sc-CtfFt iNZIcV" bis_skin_checked="1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentcolor" stroke-width="4" d="M17 1L6.705 11.295a.998.998 0 0 0 0 1.41L17 23"></path></svg></div><strong>Media Manager</strong></div><input type="text" placeholder="Search..." class="sc-laTMn jVQnQc" fdprocessedid="hvfcah"><div class="sc-bMvGRv gNiOJJ" bis_skin_checked="1"><div class="sc-hGoxap dfxEOa" bis_skin_checked="1"><div class="sc-fjmCvl wkwDf" bis_skin_checked="1"></div><div class="sc-fjmCvl hesyDi" bis_skin_checked="1"></div></div><button class="sc-iRbamj cOKtqK" fdprocessedid="yb5wfa">Upload</button></div></div><div class="wrapper" bis_skin_checked="1"><div class="sc-fAjcbJ sc-hmXxxW cZ" bis_skin_checked="1"><span>Media is being read from <strong>/</strong></span><a href="https://app.forestry.io/sites/iyczkixtgfqziq/#/settings/media"><button class="sc-iRbamj kKQaCL" fdprocessedid="rdlyg">Change upload folder</button></a></div><div class="sc-ipXKqB jTYpUw" bis_skin_checked="1"><div class="MediaManager-m__dropzone___3o1ND" aria-disabled="false" style="position: relative;" bis_skin_checked="1"><div class="sc-cqCuEk dYjjQX" bis_skin_checked="1"><div title="untitled-presentation.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/UDGdgDiwd36FsPehxTd0dLVt6dh7X5x4KcB8Bo8eEIA/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDVDFseWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tMDk0/ZDY1NTNhMzMxNThh/NTExYjI1MzI1Njk4/NDBiMGIzMDI4ZDc0/Zi9VbnRpdGxlZCUy/MHByZXNlbnRhdGlv/bi5qcGc&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="untitled-presentation-1.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/BjcreQYn_Kdw-Laq0w4uiZlWhG_DIPW97alhKOjCMpk/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDVG5keWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tOGE5/MjdkMTVjNjFmMmEy/ZjgyNTMwM2RmZGYz/YWUyZDVhNmQ3NTlj/My9VbnRpdGxlZCUy/MHByZXNlbnRhdGlv/biUyMCgxKS5qcGc&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="xd.png" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/UGA3cB3ctrRUG78DHngZrNOMFmGzApRZIICra34eI2w/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUlc5eWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tNGVh/NzI5OGYzMWIwZTk5/ZTA5YmZiNjhlMzhk/YjA0NmUxMmNmODZi/NC94ZC5wbmc&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="vs-code.png" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/LayLs9PlQyhGAHw-_nhraM7JwbFlOXMruVGANGbnP00/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUld0eWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tNWJh/YmIzNDY3OTQ0MWJk/NzU2OTUyMDZiODQ5/OTY0NDIwMDcxMTE0/OS92cy1jb2RlLnBu/Zw&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="sublime.png" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/t_4c0-06_6hY3i8_QYnJ3aq0jnWUuDVAarMM0C_MDZU/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUldkeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tYTZl/MGY4OTY0MTFkNTEx/YTM0NzcyNjljY2My/YWQxMTE0Nzk5ZmJm/MS9zdWJsaW1lLnBu/Zw&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="sketch.png" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/nqPWdc8TX6a0tEzZZFbt9z-GkssbV5L8SAsPr6MI2qo/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUldOeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tM2E5/NmNkNWFiMTViY2Qy/NmY0ZWVlMzQ2Y2M4/ZGMzZTRlNTJhMjBh/OC9za2V0Y2gucG5n&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="invision.png" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/koDk50jKsFVqqQ-I7nqIueIHa9Y3yExOUb2d9F54v1Q/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUlZseWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tMGUz/OWJkMTk0NjQyM2Ux/NWVhMTcwZTE4ZDg3/ZGY1ZmUwM2QyYTdh/NC9pbnZpc2lvbi5w/bmc&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="illustrator.png" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/GrqvBVmJVXk1OAx5uaIUl2JVAyhgJIFK-ETDnf62E1Y/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUlZWeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tYjI0/Y2MyMGI3NWM0MzUy/ZDIwZGE4NjhhN2Vi/YjkxZGY0MjRhMTBj/My9pbGx1c3RyYXRv/ci5wbmc&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="figma.png" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/GrdM1bxtEN1LwLoBbNLYZubYZEO-Wi3cv5nPcjSMcD8/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUlZGeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tMjE0/ODI4MzA2ODlhYTA2/Mzc5N2VlMDQ0ZmU3/OGM4ZDZiOTIxZDU5/OC9maWdtYS5wbmc&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="favicon.png" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/UvSrcRkTvM3gDk1wIU03mDKcZ9pcEZeEINYBF3c6TXY/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUlUxeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tOGZl/N2ExNjZjNzg2MDE0/YmI0YmMzMDAxYjMx/ZmJhNzgwMGU1MTQ5/MS9mYXZpY29uLnBu/Zw&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="SEO.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/rdh0ICNgCqMPnJkmS2aa2n2RHjA9KFdak4a1-qQJjCQ/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUlVseWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tZTNj/YzY2MWJlYzIyMzEy/M2Q4OTlmMjhmNDM0/NzZiOWMxN2JmYjRj/Zi9TRU8uanBn&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="Notepad.png" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/wij9NLrgHBqzeVrGoBi_3jgOXPtPS56quQMbIx2WwO8/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUlVWeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tYjli/ZTBjNTJmNmM3ZmFi/MzM5MWNhOWRjMWY2/ZTRmMDI0Njg3NDc3/MC9Ob3RlcGFkLnBu/Zw&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="MailChimp.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/r_rAY0_bp6OV8wYfPQtXkWb4Djvvh6T1yzBXYAVNyco/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUlVGeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tMmRk/YzY4NzMzNGQ0OGZi/ZGFiM2RhMjAxYWM2/NzFlZWMyZTgxNmJk/Zi9NYWlsQ2hpbXAu/anBn&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="Hotjar.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/zR5teLBUi1cnIe2ea_gD6L56HKvup1qVzBJDCvuXmv4/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkRoeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tOTk3/NGI0OTYwYWYwNTcx/NTNhYzNkNTZkYzJl/MWMzYWU3MjM0Zjhk/ZS9Ib3RqYXIuanBn&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="GoogleTrends.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/fqXoZRjGGlZXPwJShn-t7C946HWt0T18WINEdYZ893A/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkRSeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tMGNl/MjdkYTU4ODZkMTIz/MjcwM2FhODJjYTYy/ZmIxNmEzYjk0Yzk4/ZS9Hb29nbGVUcmVu/ZHMuanBn&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="Google-Analytics.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/xCPYwL4NHUAivxSoU8s0nfYTlIqdWyYYMq4H4Ofpuag/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkRCeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tYTA3/ZWM5YWU3NjQ4M2Jl/NjkzMzBhMTJmYjhh/MDYzNDcyMDE1Y2Ey/Yy9Hb29nbGUtQW5h/bHl0aWNzLmpwZw&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="Git.png" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/8wmgrLUe2V7CnQSvWXPT8y_Vu1Vvjqp_jFn5wEOo4XE/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkhkeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tNDgx/ZDM1YjU2Mzc3NjU0/YTU1NWZiNTc1NjNi/ZWJhY2JhYjFmNTRi/ZS9HaXQucG5n&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="Buffer.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/TLMXC3E5oXuGdXHuyCfjmlJgM8RdkC8TO78ecqqrmhw/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkhOeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tNmVj/YTViMTQ5NTdmOTEz/Mzc3ZGI0MzI5NzBl/OGM4ZGU5YTE5MWYy/Yy9CdWZmZXIuanBn&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="Bitly.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/sAJ1PkBduX54OSe2tGtoqUM3quOtUcDtxVC0ewyiyi0/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkc5eWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tYTFm/NzQwZTRmZjUyOTc1/NzU2NWQxNjFjMDQ0/ODdmMDRlOGZiNmRm/Zi9CaXRseS5qcGc&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="Atom.png" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/aQCq7YUBPbIfCyUBeYoQpY86mgMLeXxeFSNC_muFe9U/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkd0eWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tYmNj/MDg2MDg2M2YzOGQ0/MWUwYTEzZDJmMTk3/ZGRkOTU1NzBiMzRi/MS9BdG9tLnBuZw&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="Ahrefs.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/J6d17pfG5i0JSfuKaqPUC2D_aG3ZK421OIn4gIXppe8/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkdkeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tYjk4/NjMxNzk4ODA2NjA0/MGY3ZWRiMWI2Mzg0/NDcwMmVmYTdmZDE4/NC9BaHJlZnMuanBn&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="post-3.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/xeiOuHRppT05Ue0ucsWYmuTLGCT7pVq75pWccFX8SM0/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkdOeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tZTcx/MGQzOGMzZDdhN2Vj/M2E2ZTI5Mjg4MTA0/MmRiYWM4ZGVjMWQ2/Zi9wb3N0LTMuanBn&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="post-2.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/-oruUNF6lgffy4zQqLLIPTmfYXGlpCS76LqIzmpKCNE/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkZseWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tNjFm/ZTMyY2I0NTgwZmQ3/ZjVkZWYxOTU0Mzk1/MzAyZjM2OWMxNGMx/Ny9wb3N0LTIuanBn&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="post-1.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/JHE_MCZAyU3osYVyfAFAocEPauvqQlMFauRtfOFxeNc/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkZWeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tZGQ1/ZGI5MmIxM2U2MmFl/MDYxYzBmZDU4N2Zh/ZTEzNTE2MzBkMjRm/NC9wb3N0LTEuanBn&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="logo.svg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/CWU6w_BCxZpHdltKbBI82f0x9lvLJXYxlsFc7_DrEQc/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkZGeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tZjIx/NTJkNTM1YTBkY2I3/MTM4MDE5ZjU4ZGY5/ODlkYmE3ZmYxZjBh/ZC9sb2dvLnN2Zw&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="favicon.png" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/S2Y0f-_ImksBh_FQ7oH8rw1qJwhujOJG_VeCJsaI-q4/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkVseWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tMTJl/NjUyYmRmMzk0M2Q5/YTNkN2NjZGVkN2Vi/MjBjMzkwMTI5Y2Vm/ZS9mYXZpY29uLnBu/Zw&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="contact.svg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/q4snisppJ0usnfukyZzuFAfruuAawqSmBYpbkXD3lpU/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkVWeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tY2Mw/Njk3ODEzODBhZWEw/NThkMzMyYjRlYzRk/YmE5YzU2YzU2Yjlh/Ni9jb250YWN0LnN2/Zw&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="illustration.svg" class="sc-qrIAp eTVpMP" style="background-image: url(&quot;https://cdn.forestry.io/res2/UoiDYMiNeD6bDGfnw7ZnODJhmDrmKnW5KlAbj8oydro/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUkVGeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tNjZj/MDE5YmYwNzc5MzNm/MmExM2E2MTIxZmYz/MTEwM2NmY2M2MmRk/MS9pbGx1c3RyYXRp/b24uc3Zn&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="banner-bg.svg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/H6VGwOzkq8Ggg7zl7SuFN0SI_OB3uO3986tQAGPaCpM/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUXpoeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tMWFh/ZTY4N2E5ODViMGZl/OTkyNGMwNmE0YTJh/ZjkzZGUxNjI4MzIz/MC9iYW5uZXItYmcu/c3Zn&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="mark-dinn.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/tp3eHqE6q8jHeWNUEy7JhpsQnOj1UNO33FW39shE__g/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUXpSeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tZjBm/N2MxMDg5OGQ3MDFi/OTUxOTRhZTBlNzBm/YmMzOGUwMmFjNGU1/Mi9tYXJrLWRpbm4u/anBn&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div><div title="john-doe.jpg" class="sc-qrIAp dWpJLC" style="background-image: url(&quot;https://cdn.forestry.io/res2/IbO3KKF6KOuKHIc-ih1cbDXbfpnDLWrCO9hG99TH29Y/fit/512/512/sm/0/aHR0cHM6Ly9hcHAu/Zm9yZXN0cnkuaW8v/cmFpbHMvYWN0aXZl/X3N0b3JhZ2UvYmxv/YnMvZXlKZmNtRnBi/SE1pT25zaWJXVnpj/MkZuWlNJNklrSkJh/SEJDUXpCeWNXaE5Q/U0lzSW1WNGNDSTZi/blZzYkN3aWNIVnlJ/am9pWW14dllsOXBa/Q0o5ZlE9PS0tNTQx/ZjIxMWM2ZDIwZDVm/NjRlNjgyMTQ1NDYw/MTdiMWFjNzI2NmJj/ZC9qb2huLWRvZS5q/cGc&quot;), url(&quot;https://app.forestry.io/admin/b8a1605322b2dc125bc8204170717c09.png&quot;);" bis_skin_checked="1"></div></div><input type="file" autocomplete="off" style="position: absolute; inset: 0px; opacity: 1e-05; pointer-events: none;"></div><div class="sc-hzNEM hKQPtk" bis_skin_checked="1"></div></div><div class="sc-eMigcr hpVjz" bis_skin_checked="1"><div class="sc-jVODtj iZTbSI" bis_skin_checked="1"><div class="sc-gPWkxV sc-VJcYb jwpRFC" bis_skin_checked="1"><img src="./forestry.io_files/illustration(1).svg" class="sc-itybZL jYLZIb"></div><div class="sc-gPWkxV lbmhbn" bis_skin_checked="1"><h3 class="sc-fzsDOv iAQRdv">illustration.svg</h3><input readonly="" id="copy-/images/banner/illustration.svg" class="sc-TFwJa dKSuLO" value="/images/banner/illustration.svg"><button type="button" class="sc-iRbamj sc-bHwgHz ejQgFH">Copy URL</button></div></div><div class="sc-gPWkxV sc-giadOv hvXJtJ" bis_skin_checked="1"><button class="sc-iRbamj sc-krDsej edSpAe" fdprocessedid="exm7u">Insert </button></div></div></div></div></div></div> </div>
+<script nonce="" id="admin-config-script" type="text/javascript">
+//<![CDATA[
+
+  var env = {"user":{"id":93323,"email":"apoorvasaxenasrps999@gmail.com","first_name":"ApoorvSaxena","last_name":"","role":"admin","channel":"stable","features":{}},"site":{"lookup":"iyczkixtgfqziq","created_at":"2023-02-04T16:19:33.268Z","updated_at":"2023-02-04T17:28:23.678Z","publish_status":"publish_complete","import_status":"import_complete","features":["menus","drafts","previews"],"auth_method":"oauth","role":"admin","repository":{"url":"git@github.com:ApoorvSaxena0109/hugo-northendlab-forestry.git","public_id":"b0d3237f-6725-409e-925d-67e2300bcf3e","public_key":"ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBIMOYOI/Jhdn72wn/ehQJPcyFn0A5hUjWX4OL+JYdjFdTIW+oWnc2Bdyvy+PuFvZJF6EnrorBp79Z9gNjdTkQ4M=","scope":null,"hook_url":"https://app.forestry.io/git/github/hook"},"name":"The Education Bridge","storage_type":"Commit to source repo only","engine":{"name":"Hugo"},"storage_provider":{"git_url":null,"git_branch":null,"name":"Commit to source repo only","host":null,"username":null,"port":null,"directory":null,"aws_key":null,"aws_bucket":null,"aws_path":"","storage_type_id":9,"domain":null,"aws_gzip":false,"key":null},"source_provider":{"name":"GitHub","git_url":"git@github.com:ApoorvSaxena0109/hugo-northendlab-forestry.git","git_branch":"master"},"media_provider":{"kind":"git"},"sections":[{"name":"Post","slug":"post","templates":["post"],"new_doc_ext":"md","type":"directory","read_only":false,"path":"content","slug_path":"content","allow_create":"documents","default_layout":"post","page_count":1},{"name":"Data","slug":"data","templates":["tools"],"new_doc_ext":"yml","type":"directory","read_only":false,"path":"data","slug_path":"data","allow_create":"documents","default_layout":"tools","page_count":1},{"name":"Author","slug":"author","templates":["author"],"new_doc_ext":"md","type":"directory","read_only":false,"path":"content/author","slug_path":"content/author","allow_create":"documents","default_layout":"author","page_count":1},{"name":"Contact","slug":"contact","templates":[],"new_doc_ext":"md","type":"document","read_only":false,"path":"content/contact/_index.md","slug_path":"content/contact/_index.md","allow_create":"none","default_layout":"","page_count":1}],"organization_slug":null},"siteId":"iyczkixtgfqziq","jwt":"eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzUxMiJ9.eyJleHAiOjE3MDcwNjgwMTAsImlhdCI6MTY3NTUzMjAxMCwic3ViIjp7ImlkIjo5MzMyMywic2Vzc2lvbl90b2tlbiI6bnVsbH19.liI1muBpKLsoQl3Vt-Dfk9I0TWdKT0x86i13LHH4tUDEwEZqJjHRtnclwJQc4on8pKrCDmtTGJ787ETDg_umhk-rSG7avoV_fVwm7K4GA8fCsjdpRtrjFk9Ry1sqbhmGSVbyREcoSvd2Dsb_xM2uqjJlrrFQhbm0yRIFB65X5sUVVIPDeDMt9npFdU-XLjnd4R-4DuWqz0GFJtaraIfpXDtB89Hvmxf-zm9wDD87NvDv4Ru2QOiS991G2yJQ78lzngnv5_a5AFVvtZ-GbKkBh-vhJPlJDU1d9Z5E3wwXPA31jiicX3q0aPgT632VDcoaVyDdK2m3sqAqlkiZfzlB1hbWaW6maE3nGz7W-w7Aj6gsBesAze49jnDuAODgpQsXWgEOjNZhf6b91UPplMMgYZCIHWjgSZ-iQPk7ufiVKznOneM1_r0eDnozvItbJbtA6aau7kv2hencwIlelUsXhD445EICBacmQl2XYYcWM6it8KjEC--9AceJeEo14A3E6FlO1Mf8vQRO8VwEF5FELp54EhFW-p76MnXSZBey3uU3YKXzn0-TEXrjpYM_N0uv7N4zlgZXS7b3g_cr30HLJPitqGID4_LJkwbYy7FDjPi7jcBZf7b_swws5fEHwr6cIsLztdh4Vm0eDIi0Mykkfk9ZmlDS8e9_cuvXKvaIkUo","websocket":{"token":"ddb564b280a205a2297f7e0e5ef7365fc28942d22cc23042e25eae87beba0ef0","timestamp":1675532010},"local":true};
+  function uuidv4() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  var uuid = uuidv4()
+  var script = document.createElement('script');
+  script.src = "https://app.forestry.io/admin/forestry.min.js?hash=" + uuid
+  script.id = "forestry-admin";
+  document.body.appendChild(script);
+
+
+  var link = document.createElement("link");
+  link.type = "text/css";
+  link.rel = "stylesheet";
+  link.href = "https://app.forestry.io/admin/main.css?hash=" + uuid
+  document.head.appendChild(link);
+
+
+
+//]]>
+</script><script src="./forestry.io_files/forestry.min.js.download" id="forestry-admin"></script>
+<script src="./forestry.io_files/i9oymrzt" nonce="" async="async"></script>
+<script nonce="" id="IntercomSettingsScriptTag">
+//<![CDATA[
+
+    window.intercomSettings = {
+      app_id: "i9oymrzt",
+      email: "apoorvasaxenasrps999@gmail.com",
+      user_hash: "52b0a76cde7a57be3fb6f9c9a23050eeead22bd63a92fccd0ed980d550d5d7c3"
+    };
+    (function(){var w=window;var ic=w.Intercom;if(typeof ic==="function"){ic('reattach_activator');ic('update',intercomSettings);}else{var d=document;var i=function(){i.c(arguments)};i.q=[];i.c=function(args){i.q.push(args)};w.Intercom=i;function l(){var s=d.createElement('script');s.type='text/javascript';s.async=true;s.src='https://widget.intercom.io/widget/i9oymrzt';var x=d.getElementsByTagName('script')[0];x.parentNode.insertBefore(s,x);}if(w.attachEvent){w.attachEvent('onload',l);}else{w.addEventListener('load',l,false);}};})()
+
+//]]>
+</script>
+
+<iframe id="intercom-frame" style="position: absolute !important; opacity: 0 !important; width: 1px !important; height: 1px !important; top: 0 !important; left: 0 !important; border: none !important; display: block !important; z-index: -1 !important; pointer-events: none;" aria-hidden="true" tabindex="-1" title="Intercom" src="./forestry.io_files/saved_resource.html"></iframe><div class="intercom-lightweight-app" bis_skin_checked="1"><style id="intercom-lightweight-app-style" type="text/css">
+  @keyframes intercom-lightweight-app-launcher {
+    from {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes intercom-lightweight-app-gradient {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes intercom-lightweight-app-messenger {
+    
+        0% {
+          opacity: 0;
+          transform: scale(0);
+        }
+        40% {
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1);
+        }
+        
+  }
+
+  .intercom-lightweight-app {
+    position: fixed;
+    z-index: 2147483001;
+    width: 0;
+    height: 0;
+    font-family: intercom-font, "Helvetica Neue", "Apple Color Emoji", Helvetica, Arial, sans-serif;
+  }
+
+  .intercom-lightweight-app-gradient {
+    position: fixed;
+    z-index: 2147483002;
+    width: 500px;
+    height: 500px;
+    bottom: 0;
+    right: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse at bottom right,
+      rgba(29, 39, 54, 0.16) 0%,
+      rgba(29, 39, 54, 0) 72%);
+    animation: intercom-lightweight-app-gradient 200ms ease-out;
+  }
+
+  .intercom-lightweight-app-launcher {
+    position: fixed;
+    z-index: 2147483003;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none;
+    bottom: 20px;
+    right: 20px;
+    max-width: 48px;
+    width: 48px;
+    max-height: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #20C997;
+    cursor: pointer;
+    box-shadow: 0 1px 6px 0 rgba(0, 0, 0, 0.06), 0 2px 32px 0 rgba(0, 0, 0, 0.16);
+    transition: transform 167ms cubic-bezier(0.33, 0.00, 0.00, 1.00);
+    box-sizing: content-box;
+  }
+
+  
+        .intercom-lightweight-app-launcher:hover {
+          transition: transform 250ms cubic-bezier(0.33, 0.00, 0.00, 1.00);
+          transform: scale(1.1)
+        }
+
+        .intercom-lightweight-app-launcher:active {
+          transform: scale(0.85);
+          transition: transform 134ms cubic-bezier(0.45, 0, 0.2, 1);
+        }
+      
+
+
+  .intercom-lightweight-app-launcher:focus {
+    outline: none;
+
+    
+  }
+
+  .intercom-lightweight-app-launcher-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 48px;
+    height: 48px;
+    transition: transform 100ms linear, opacity 80ms linear;
+  }
+
+  .intercom-lightweight-app-launcher-icon-open {
+    
+        opacity: 1;
+        transform: rotate(0deg) scale(1);
+      
+  }
+
+  .intercom-lightweight-app-launcher-icon-open svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .intercom-lightweight-app-launcher-icon-open svg path {
+    fill: rgb(255, 255, 255);
+  }
+
+  .intercom-lightweight-app-launcher-icon-self-serve {
+    
+        opacity: 1;
+        transform: rotate(0deg) scale(1);
+      
+  }
+
+  .intercom-lightweight-app-launcher-icon-self-serve svg {
+    height: 44px;
+  }
+
+  .intercom-lightweight-app-launcher-icon-self-serve svg path {
+    fill: rgb(255, 255, 255);
+  }
+
+  .intercom-lightweight-app-launcher-custom-icon-open {
+    max-height: 24px;
+    max-width: 24px;
+
+    
+        opacity: 1;
+        transform: rotate(0deg) scale(1);
+      
+  }
+
+  .intercom-lightweight-app-launcher-icon-minimize {
+    
+        opacity: 0;
+        transform: rotate(-60deg) scale(0);
+      
+  }
+
+  .intercom-lightweight-app-launcher-icon-minimize svg path {
+    fill: rgb(255, 255, 255);
+  }
+
+  .intercom-lightweight-app-messenger {
+    position: fixed;
+    z-index: 2147483003;
+    overflow: hidden;
+    background-color: white;
+    animation: intercom-lightweight-app-messenger 250ms cubic-bezier(0, 1.2, 1, 1);
+    transform-origin: bottom right;
+    height: calc(100% - 40px);
+    
+        width: 400px;
+        height: calc(100% - 40px);
+        max-height: 704px;
+        min-height: 250px;
+        right: 20px;
+        bottom: 20px;
+        box-shadow: 0 5px 40px rgba(0,0,0,0.16);
+      
+
+    border-radius: 15px;
+  }
+
+  .intercom-lightweight-app-messenger-header {
+    height: 64px;
+    border-bottom: none;
+    background: #20C997
+  }
+
+  .intercom-lightweight-app-messenger-footer{
+    position:absolute;
+    bottom:0;
+    width: 100%;
+    min-height: 81px;
+    background: #fff;
+    font-size: 14px;
+    line-height: 21px;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0px 0px 25px rgba(0, 0, 0, 0.05);
+  }
+
+  @media print {
+    .intercom-lightweight-app {
+      display: none;
+    }
+  }
+</style></div><div id="react-beautiful-dnd-announcement-1" aria-live="assertive" role="log" aria-atomic="true" style="position: absolute; width: 1px; height: 1px; margin: -1px; border: 0px; padding: 0px; overflow: hidden; clip: rect(0px, 0px, 0px, 0px); clip-path: inset(100%);" bis_skin_checked="1"></div></body></html>
